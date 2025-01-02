@@ -164,7 +164,7 @@ def main() -> None:  # pylint: disable=too-many-locals,too-many-branches,too-man
                 summary = True
                 while stop_reason is None:
                     if summary:
-                        text = "{fqdn}\n(__hb__) {uptime}\ntemp: {temp}"
+                        text = "{fqdn}\n(__hb__) {uptime}\nT: {temp}  F: {fan}"
                     else:
                         text = "{ip}\n(__hb__) iface: {iface}\ncpu: {cpu} mem: {mem}"
                     draw(sensors.render(text))

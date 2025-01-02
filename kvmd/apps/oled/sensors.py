@@ -25,6 +25,7 @@ import socket
 import functools
 import datetime
 import time
+import subprocess
 
 import netifaces
 import psutil
@@ -40,6 +41,7 @@ class Sensors:
             "ip":     self.__get_ip,
             "uptime": self.__get_uptime,
             "temp":   self.__get_temp,
+            "fan":   self.__get_fan_speed,
             "cpu":    self.__get_cpu,
             "mem":    self.__get_mem,
         }
@@ -103,6 +105,17 @@ class Sensors:
         except Exception:
             # _logger.exception("Can't read temp")
             return "<no-temp>"
+
+    # =====
+
+    def __get_fan_speed(self) -> str:
+        try:
+            fan_cmd = "curl -s --unix-socket /run/kvmd/fan.sock http://localhost/state | jshon -e result -e fan -e speed"
+            fan_speed = int(round(float(subprocess.check_output(fan_cmd,shell=True))))
+            return f"{fan_speed}%"
+        except Exception:
+            # _logger.exception("Can't read fan speed")
+            return "none"
 
     # =====
 
