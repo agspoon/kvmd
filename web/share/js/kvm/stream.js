@@ -72,13 +72,13 @@ export function Streamer() {
 		tools.radio.setOnClick("stream-mode-radio", __clickModeRadio, false);
 
 		// Not getInt() because of radio is a string container.
-		// Also don't reset Janus at class init.
+		// Also don't reset Streamer at class init.
 		tools.radio.clickValue("stream-orient-radio", tools.storage.get("stream.orient", 0));
 		tools.radio.setOnClick("stream-orient-radio", function() {
-			if (__streamer.getMode() === "janus") { // Right now it's working only for H.264
+			if (["janus", "media"].includes(__streamer.getMode())) {
 				let orient = parseInt(tools.radio.getValue("stream-orient-radio"));
 				tools.storage.setInt("stream.orient", orient);
-				if (__streamer.getOrientation() != orient) {
+				if (__streamer.getOrientation() !== orient) {
 					__resetStream();
 				}
 			}
@@ -91,6 +91,15 @@ export function Streamer() {
 			if (__streamer.getMode() === "janus") {
 				let allow_audio = !$("stream-video").muted;
 				if (__streamer.isAudioAllowed() !== allow_audio) {
+					__resetStream();
+				}
+			}
+			tools.el.setEnabled($("stream-mic-switch"), !!value);
+		});
+
+		tools.storage.bindSimpleSwitch($("stream-mic-switch"), "stream.mic", false, function(allow_mic) {
+			if (__streamer.getMode() === "janus") {
+				if (__streamer.isMicAllowed() !== allow_mic) {
 					__resetStream();
 				}
 			}
@@ -206,6 +215,7 @@ export function Streamer() {
 			tools.feature.setEnabled($("stream-mode"), f.h264);
 			if (!f.h264) {
 				tools.feature.setEnabled($("stream-audio"), false);
+				tools.feature.setEnabled($("stream-mic"), false);
 			}
 
 			let mode = tools.storage.get("stream.mode", "janus");
@@ -289,20 +299,24 @@ export function Streamer() {
 			mode = __streamer.getMode();
 		}
 		__streamer.stopStream();
+		let orient = tools.storage.getInt("stream.orient", 0);
 		if (mode === "janus") {
-			__streamer = new JanusStreamer(__setActive, __setInactive, __setInfo,
-				tools.storage.getInt("stream.orient", 0), !$("stream-video").muted);
+			let allow_audio = !$("stream-video").muted;
+			let allow_mic = $("stream-mic-switch").checked;
+			__streamer = new JanusStreamer(__setActive, __setInactive, __setInfo, orient, allow_audio, allow_mic);
 			// Firefox doesn't support RTP orientation:
 			//  - https://bugzilla.mozilla.org/show_bug.cgi?id=1316448
 			tools.feature.setEnabled($("stream-orient"), !tools.browser.is_firefox);
 		} else {
 			if (mode === "media") {
-				__streamer = new MediaStreamer(__setActive, __setInactive, __setInfo);
+				__streamer = new MediaStreamer(__setActive, __setInactive, __setInfo, orient);
+				tools.feature.setEnabled($("stream-orient"), true);
 			} else { // mjpeg
 				__streamer = new MjpegStreamer(__setActive, __setInactive, __setInfo);
+				tools.feature.setEnabled($("stream-orient"), false);
 			}
-			tools.feature.setEnabled($("stream-orient"), false);
 			tools.feature.setEnabled($("stream-audio"), false); // Enabling in stream_janus.js
+			tools.feature.setEnabled($("stream-mic"), false); // Ditto
 		}
 		if (wm.isWindowVisible($("stream-window"))) {
 			__streamer.ensureStream((__state && __state.streamer !== undefined) ? __state.streamer : null);
@@ -321,19 +335,14 @@ export function Streamer() {
 	};
 
 	var __clickScreenshotButton = function() {
-		let el = document.createElement("a");
-		el.href = "/api/streamer/snapshot";
-		el.target = "_blank";
-		document.body.appendChild(el);
-		el.click();
-		setTimeout(() => document.body.removeChild(el), 0);
+		tools.windowOpen("api/streamer/snapshot");
 	};
 
 	var __clickResetButton = function() {
 		wm.confirm("Are you sure you want to reset stream?").then(function(ok) {
 			if (ok) {
 				__resetStream();
-				tools.httpPost("/api/streamer/reset", null, function(http) {
+				tools.httpPost("api/streamer/reset", null, function(http) {
 					if (http.status !== 200) {
 						wm.error("Can't reset stream", http.responseText);
 					}
@@ -343,7 +352,7 @@ export function Streamer() {
 	};
 
 	var __sendParam = function(name, value) {
-		tools.httpPost("/api/streamer/set_params", {[name]: value}, function(http) {
+		tools.httpPost("api/streamer/set_params", {[name]: value}, function(http) {
 			if (http.status !== 200) {
 				wm.error("Can't configure stream", http.responseText);
 			}

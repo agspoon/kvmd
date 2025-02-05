@@ -23,6 +23,7 @@
 "use strict";
 
 
+import {ROOT_PREFIX} from "../vars.js";
 import {tools, $} from "../tools.js";
 import {wm} from "../wm.js";
 
@@ -272,10 +273,15 @@ export function Session() {
 		let close_hook = null;
 		let has_webterm = (state.webterm && (state.webterm.enabled || state.webterm.started));
 		if (has_webterm) {
-			let path = "/" + state.webterm.path + "?disableLeaveAlert=true";
+			let loc = window.location;
+			let base = `${loc.protocol}//${loc.host}${loc.pathname}${ROOT_PREFIX}`;
+			// Tailing slash after state.webterm.path is added to avoid Nginx 301 redirect
+			// when the location doesn't have tailing slash: "foo -> foo/".
+			// Reverse proxy over PiKVM can be misconfigured to handle this.
+			let url = base + state.webterm.path + "/?disableLeaveAlert=true";
 			show_hook = function() {
-				tools.info("Terminal opened: ", path);
-				$("webterm-iframe").src = path;
+				tools.info("Terminal opened: ", url);
+				$("webterm-iframe").src = url;
 			};
 			close_hook = function() {
 				tools.info("Terminal closed");
@@ -291,9 +297,9 @@ export function Session() {
 		$("link-led").className = "led-yellow";
 		$("link-led").title = "Connecting...";
 
-		tools.httpGet("/api/auth/check", null, function(http) {
+		tools.httpGet("api/auth/check", null, function(http) {
 			if (http.status === 200) {
-				__ws = new WebSocket(`${tools.is_https ? "wss" : "ws"}://${location.host}/api/ws`);
+				__ws = new WebSocket(tools.makeWsUrl("api/ws"));
 				__ws.sendHidEvent = (event) => __sendHidEvent(__ws, event.event_type, event.event);
 				__ws.onopen = __wsOpenHandler;
 				__ws.onmessage = __wsMessageHandler;
@@ -302,7 +308,7 @@ export function Session() {
 			} else if (http.status === 401 || http.status === 403) {
 				window.onbeforeunload = () => null;
 				wm.error("Unexpected logout occured, please login again").then(function() {
-					document.location.href = "/login";
+					tools.currentOpen("login");
 				});
 			} else {
 				__wsCloseHandler(null);
@@ -313,7 +319,7 @@ export function Session() {
 	var __ascii_encoder = new TextEncoder("ascii");
 
 	var __sendHidEvent = function(ws, event_type, event) {
-		if (event_type == "key") {
+		if (event_type === "key") {
 			let data = __ascii_encoder.encode("\x01\x00" + event.key);
 			data[1] = (event.state ? 1 : 0);
 			if (event.finish === true) { // Optional
@@ -321,12 +327,12 @@ export function Session() {
 			}
 			ws.send(data);
 
-		} else if (event_type == "mouse_button") {
+		} else if (event_type === "mouse_button") {
 			let data = __ascii_encoder.encode("\x02\x00" + event.button);
 			data[1] = (event.state ? 1 : 0);
 			ws.send(data);
 
-		} else if (event_type == "mouse_move") {
+		} else if (event_type === "mouse_move") {
 			let data = new Uint8Array([
 				3,
 				(event.to.x >> 8) & 0xFF, event.to.x & 0xFF,
@@ -334,7 +340,7 @@ export function Session() {
 			]);
 			ws.send(data);
 
-		} else if (event_type == "mouse_relative" || event_type == "mouse_wheel") {
+		} else if (event_type === "mouse_relative" || event_type === "mouse_wheel") {
 			let data;
 			if (Array.isArray(event.delta)) {
 				data = new Int8Array(2 + event.delta.length * 2);
@@ -347,7 +353,7 @@ export function Session() {
 			} else {
 				data = new Int8Array([0, 0, event.delta.x, event.delta.y]);
 			}
-			data[0] = (event_type == "mouse_relative" ? 4 : 5);
+			data[0] = (event_type === "mouse_relative" ? 4 : 5);
 			data[1] = (event.squash ? 1 : 0);
 			ws.send(data);
 		}

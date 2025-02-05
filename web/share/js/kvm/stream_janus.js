@@ -29,10 +29,12 @@ import {tools, $} from "../tools.js";
 var _Janus = null;
 
 
-export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, __allow_audio) {
+export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, __allow_audio, __allow_mic) {
 	var self = this;
 
 	/************************************************************************/
+
+	__allow_mic = (__allow_audio && __allow_mic); // XXX: Mic only with audio
 
 	var __stop = false;
 	var __ensuring = false;
@@ -51,8 +53,18 @@ export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, _
 
 	self.getOrientation = () => __orient;
 	self.isAudioAllowed = () => __allow_audio;
+	self.isMicAllowed = () => __allow_mic;
 
-	self.getName = () => (__allow_audio ? "WebRTC H.264 + Audio" : "WebRTC H.264");
+	self.getName = function() {
+		let name = "WebRTC H.264";
+		if (__allow_audio) {
+			name += " + Audio";
+			if (__allow_mic) {
+				name += " + Mic";
+			}
+		}
+		return name;
+	};
 	self.getMode = () => "janus";
 
 	self.getResolution = function() {
@@ -84,7 +96,7 @@ export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, _
 			__setInfo(false, false, "");
 			__logInfo("Starting Janus ...");
 			__janus = new _Janus({
-				"server": `${tools.is_https ? "wss" : "ws"}://${location.host}/janus/ws`,
+				"server": tools.makeWsUrl("janus/ws"),
 				"ipv6": true,
 				"destroyOnUnload": false,
 				"success": __attachJanus,
@@ -229,6 +241,7 @@ export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, _
 						__setInfo(false, false, "");
 					} else if (msg.result.status === "features") {
 						tools.feature.setEnabled($("stream-audio"), msg.result.features.audio);
+						tools.feature.setEnabled($("stream-mic"), msg.result.features.mic);
 					}
 				} else if (msg.error_code || msg.error) {
 					__logError("Got uStreamer error message:", msg.error_code, "-", msg.error);
@@ -251,7 +264,7 @@ export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, _
 					__logInfo("Handling SDP:", jsep);
 					let tracks = [{"type": "video", "capture": false, "recv": true, "add": true}];
 					if (__allow_audio) {
-						tracks.push({"type": "audio", "capture": false, "recv": true, "add": true});
+						tracks.push({"type": "audio", "capture": __allow_mic, "recv": true, "add": true});
 					}
 					__handle.createAnswer({
 						"jsep": jsep,
@@ -284,7 +297,7 @@ export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, _
 				// Chrome sends `muted` notifiation for tracks in `disconnected` ICE state
 				// and Janus.js just removes muted track from list of available tracks.
 				// But track still exists actually so it's safe to just ignore
-				// reason == "mute" and "unmute".
+				// reason === "mute" and "unmute".
 				let reason = (meta || {}).reason;
 				__logInfo("Got onremotetrack:", id, added, reason, track, meta);
 				if (added && reason === "created") {
@@ -354,11 +367,12 @@ export function JanusStreamer(__setActive, __setInactive, __setInfo, __orient, _
 
 	var __sendWatch = function() {
 		if (__handle) {
-			__logInfo(`Sending WATCH(orient=${__orient}, audio=${__allow_audio}) + FEATURES ...`);
+			__logInfo(`Sending WATCH(orient=${__orient}, audio=${__allow_audio}, mic=${__allow_mic}) + FEATURES ...`);
 			__handle.send({"message": {"request": "features"}});
 			__handle.send({"message": {"request": "watch", "params": {
 				"orientation": __orient,
 				"audio": __allow_audio,
+				"mic": __allow_mic,
 			}}});
 		}
 	};

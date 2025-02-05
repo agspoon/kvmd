@@ -1,4 +1,4 @@
-# ========================================================================== #
+/*****************************************************************************
 #                                                                            #
 #    KVMD - The main PiKVM daemon.                                           #
 #                                                                            #
@@ -17,49 +17,15 @@
 #    You should have received a copy of the GNU General Public License       #
 #    along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
 #                                                                            #
-# ========================================================================== #
+*****************************************************************************/
 
 
-import os
-
-from . import env
+"use strict";
 
 
-# =====
-def find_udc(udc: str) -> str:
-    path = f"{env.SYSFS_PREFIX}/sys/class/udc"
-    candidates = sorted(os.listdir(path))
-    if not udc:
-        if len(candidates) == 0:
-            raise RuntimeError("Can't find any UDC")
-        udc = candidates[0]
-    elif udc not in candidates:
-        raise RuntimeError(f"Can't find selected UDC: {udc}")
-    return udc  # fe980000.usb
+export var ROOT_PREFIX = "./";
 
 
-# =====
-U_STATE = "state"
-
-
-def get_udc_path(udc: str, *parts: str) -> str:
-    return os.path.join(f"{env.SYSFS_PREFIX}/sys/class/udc", udc, *parts)
-
-
-# =====
-G_UDC = "UDC"
-G_FUNCTIONS = "functions"
-G_PROFILE_NAME = "c.1"
-G_PROFILE = f"configs/{G_PROFILE_NAME}"
-
-
-def get_gadget_path(gadget: str, *parts: str) -> str:
-    return os.path.join(f"{env.SYSFS_PREFIX}/sys/kernel/config/usb_gadget", gadget, *parts)
-
-
-# =====
-def make_inquiry_string(vendor: str, product: str, revision: str) -> str:
-    # Vendor: 8 ASCII chars
-    # Product: 16
-    # Revision: 4
-    return "%-8.8s%-16.16s%-4.4s" % (vendor, product, revision)
+export function setRootPrefix(prefix) {
+	ROOT_PREFIX = prefix;
+}

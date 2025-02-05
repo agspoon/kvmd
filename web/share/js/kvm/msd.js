@@ -23,6 +23,7 @@
 "use strict";
 
 
+import {ROOT_PREFIX} from "../vars.js";
 import {tools, $} from "../tools.js";
 import {wm} from "../wm.js";
 
@@ -120,7 +121,7 @@ export function Msd() {
 
 		tools.hidden.setVisible($("msd-message-offline"), (state && !state.online));
 		tools.hidden.setVisible($("msd-message-image-broken"), (o && d.image && !d.image.complete && !s.uploading));
-		tools.hidden.setVisible($("msd-message-too-big-for-cdrom"), (o && d.cdrom && d.image && d.image.size >= 2359296000));
+		tools.hidden.setVisible($("msd-message-too-big-for-dvd"), (o && d.cdrom && d.image && d.image.size >= 33957083136));
 		tools.hidden.setVisible($("msd-message-out-of-storage"), (o && d.image && !d.image.in_storage));
 		tools.hidden.setVisible($("msd-message-rw-enabled"), (o && d.rw));
 		tools.hidden.setVisible($("msd-message-another-user-uploads"), (o && s.uploading && !__http));
@@ -270,14 +271,14 @@ export function Msd() {
 
 	var __clickDownloadButton = function() {
 		let image = encodeURIComponent($("msd-image-selector").value);
-		window.open(`/api/msd/read?image=${image}`);
+		tools.windowOpen(`api/msd/read?image=${image}`);
 	};
 
 	var __clickRemoveButton = function() {
 		let name = $("msd-image-selector").value;
 		wm.confirm("Are you sure you want to remove this image?", name).then(function(ok) {
 			if (ok) {
-				tools.httpPost("/api/msd/remove", {"image": name}, function(http) {
+				tools.httpPost("api/msd/remove", {"image": name}, function(http) {
 					if (http.status !== 200) {
 						wm.error("Can't remove image", http.responseText);
 					}
@@ -287,7 +288,7 @@ export function Msd() {
 	};
 
 	var __sendParam = function(name, value) {
-		tools.httpPost("/api/msd/set_params", {[name]: value}, function(http) {
+		tools.httpPost("api/msd/set_params", {[name]: value}, function(http) {
 			if (http.status !== 200) {
 				wm.error("Can't configure Mass Storage", http.responseText);
 			}
@@ -301,10 +302,10 @@ export function Msd() {
 		let prefix = encodeURIComponent($("msd-new-part-selector").value);
 		if (file) {
 			let image = encodeURIComponent(file.name);
-			__http.open("POST", `/api/msd/write?prefix=${prefix}&image=${image}&remove_incomplete=1`, true);
+			__http.open("POST", `${ROOT_PREFIX}api/msd/write?prefix=${prefix}&image=${image}&remove_incomplete=1`, true);
 		} else {
 			let url = encodeURIComponent($("msd-new-url").value);
-			__http.open("POST", `/api/msd/write_remote?prefix=${prefix}&url=${url}&remove_incomplete=1`, true);
+			__http.open("POST", `${ROOT_PREFIX}api/msd/write_remote?prefix=${prefix}&url=${url}&remove_incomplete=1`, true);
 		}
 		__http.upload.timeout = 7 * 24 * 3600;
 		__http.onreadystatechange = __uploadStateChange;
@@ -360,7 +361,7 @@ export function Msd() {
 	};
 
 	var __clickConnectButton = function(connected) {
-		tools.httpPost("/api/msd/set_connected", {"connected": connected}, function(http) {
+		tools.httpPost("api/msd/set_connected", {"connected": connected}, function(http) {
 			if (http.status !== 200) {
 				wm.error("Can't switch Mass Storage", http.responseText);
 			}
@@ -373,7 +374,7 @@ export function Msd() {
 	var __clickResetButton = function() {
 		wm.confirm("Are you sure you want to reset Mass Storage?").then(function(ok) {
 			if (ok) {
-				tools.httpPost("/api/msd/reset", null, function(http) {
+				tools.httpPost("api/msd/reset", null, function(http) {
 					if (http.status !== 200) {
 						wm.error("Mass Storage reset error", http.responseText);
 					}
