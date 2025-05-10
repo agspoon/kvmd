@@ -306,7 +306,7 @@ export function Switch() {
 			if (active < 0 || active >= __state.model.ports.length) {
 				$("switch-active-port").innerText = "N/A";
 			} else {
-				$("switch-active-port").innerText = "p" + __formatPort(__state.model, active);
+				$("switch-active-port").innerText = "p" + summary.active_id;
 			}
 			for (let port = 0; port < __state.model.ports.length; ++port) {
 				__setLedState($(`__switch-port-led-p${port}`), "green", (port === active));
@@ -361,7 +361,7 @@ export function Switch() {
 			content += `
 				<tr>
 					<td>Port:</td>
-					<td class="value">${__formatPort(model, port)}</td>
+					<td class="value">${pa.id}</td>
 					<td>&nbsp;&nbsp;</td>
 					<td>
 						<div class="buttons-row">
@@ -459,7 +459,7 @@ export function Switch() {
 
 		let create_content = function(el_parent) {
 			let html = `
-				<table>
+				<table style="width: 100%">
 					<tr>
 						<td>Port name:</td>
 						<td><input
@@ -473,9 +473,33 @@ export function Switch() {
 						<td><select id="__switch-port-edid-selector" style="width: 100%"></select></td>
 					</tr>
 				</table>
-				<hr>
-				<table>
 			`;
+
+			let fw = model.units[model.ports[port].unit].firmware;
+			if (fw.devbuild || fw.version >= 8) {
+				html += `
+					<hr>
+					<table style="width: 100%">
+						<tr>
+							<td>Simulate display on inactive port:</td>
+							<td align="right">
+								<div class="switch-box">
+									<input
+										type="checkbox" id="__switch-port-dummy-switch"
+										${model.ports[port].video.dummy ? "checked" : ""}
+									/>
+									<label for="__switch-port-dummy-switch">
+										<span class="switch-inner"></span>
+										<span class="switch"></span>
+									</label>
+								</div>
+							</td>
+						</tr>
+					</table>
+				`;
+			}
+
+			html += "<hr><table style=\"width: 100%\">";
 			for (let kv of Object.entries(atx_actions)) {
 				html += `
 					<tr>
@@ -491,6 +515,7 @@ export function Switch() {
 				`;
 			}
 			html += "</table>";
+
 			el_parent.innerHTML = html;
 
 			let el_selector = $("__switch-port-edid-selector");
@@ -516,11 +541,12 @@ export function Switch() {
 			}
 		};
 
-		wm.modal(`Port ${__formatPort(__state.model, port)} settings`, create_content, true, true).then(function(ok) {
+		wm.modal(`Port ${__state.model.ports[port].id} settings`, create_content, true, true).then(function(ok) {
 			if (ok) {
 				let params = {
 					"port": port,
 					"edid_id": $("__switch-port-edid-selector").value,
+					"dummy": $("__switch-port-dummy-switch").checked,
 					"name": $("__switch-port-name-input").value,
 				};
 				for (let action of Object.keys(atx_actions)) {
@@ -529,14 +555,6 @@ export function Switch() {
 				__sendPost("api/switch/set_port_params", params);
 			}
 		});
-	};
-
-	var __formatPort = function(model, port) {
-		if (model.units.length > 1) {
-			return `${model.ports[port].unit + 1}.${model.ports[port].channel + 1}`;
-		} else {
-			return `${port + 1}`;
-		}
 	};
 
 	var __setLedState = function(el, color, on) {
